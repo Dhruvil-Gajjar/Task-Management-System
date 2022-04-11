@@ -30,4 +30,4 @@ pip install flask
 
 The server starts by default on http://127.0.0.1:5000/
 
-After successful sign-up, the user name, email and uid are stored in a global dictionary called person
+After successful sign-up, the user name, email and uid are stored in a global dictionary called request_user

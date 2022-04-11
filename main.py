@@ -1,15 +1,23 @@
 from flask import Flask, flash, redirect, render_template, request, session, abort, url_for
-from DB import auth, db
+from Auth import auth, db, request_user
 
-app = Flask(__name__)  # Initialze flask constructor
-
-# Initialze person as dictionary
-person = {"is_logged_in": False, "name": "", "email": "", "uid": ""}
+app = Flask(__name__)
 
 
 # Login
 @app.route("/")
 def login():
+    if request_user["is_logged_in"]:
+        return render_template("dashboard.html", email=request_user["email"], name=request_user["name"])
+    else:
+        return render_template("login.html")
+
+
+# Logout
+@app.route("/logout")
+def logout():
+    auth.current_user = None
+    request_user["is_logged_in"] = False
     return render_template("login.html")
 
 
@@ -20,10 +28,10 @@ def signup():
 
 
 # Welcome page
-@app.route("/welcome")
+@app.route("/dashboard")
 def welcome():
-    if person["is_logged_in"] == True:
-        return render_template("welcome.html", email=person["email"], name=person["name"])
+    if request_user["is_logged_in"]:
+        return render_template("dashboard.html", email=request_user["email"], name=request_user["name"])
     else:
         return redirect(url_for('login'))
 
@@ -38,22 +46,21 @@ def result():
         try:
             # Try signing in the user with the given information
             user = auth.sign_in_with_email_and_password(email, password)
-            # Insert the user data in the global person
-            global person
-            person["is_logged_in"] = True
-            person["email"] = user["email"]
-            person["uid"] = user["localId"]
-            # Get the name of the user
+
+            request_user["is_logged_in"] = True
+            request_user["email"] = user["email"]
+            request_user["uid"] = user["localId"]
+
             data = db.child("users").get()
-            person["name"] = data.val()[person["uid"]]["name"]
+            request_user["name"] = data.val()[request_user["uid"]]["name"]
             # Redirect to welcome page
-            return redirect(url_for('welcome'))
+            return redirect(url_for('dashboard'))
         except:
             # If there is any error, redirect back to login
             return redirect(url_for('login'))
     else:
-        if person["is_logged_in"] == True:
-            return redirect(url_for('welcome'))
+        if request_user["is_logged_in"]:
+            return redirect(url_for('dashboard'))
         else:
             return redirect(url_for('login'))
 
@@ -71,27 +78,26 @@ def register():
             auth.create_user_with_email_and_password(email, password)
             # Login the user
             user = auth.sign_in_with_email_and_password(email, password)
-            # Add data to global person
-            global person
-            person["is_logged_in"] = True
-            person["email"] = user["email"]
-            person["uid"] = user["localId"]
-            person["name"] = name
+
+            request_user["is_logged_in"] = True
+            request_user["email"] = user["email"]
+            request_user["uid"] = user["localId"]
+            request_user["name"] = name
             # Append data to the firebase realtime database
             data = {"name": name, "email": email}
-            db.child("users").child(person["uid"]).set(data)
+            db.child("users").child(request_user["uid"]).set(data)
             # Go to welcome page
-            return redirect(url_for('welcome'))
+            return redirect(url_for('dashboard'))
         except:
             # If there is any error, redirect to register
             return redirect(url_for('register'))
 
     else:
-        if person["is_logged_in"] == True:
-            return redirect(url_for('welcome'))
+        if request_user["is_logged_in"]:
+            return redirect(url_for('dashboard'))
         else:
             return redirect(url_for('register'))
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
